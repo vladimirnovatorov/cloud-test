@@ -1,0 +1,78 @@
+services:
+  mongo:
+    image: mongo
+    restart: always
+    container_name: mongo
+    hostname: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - ./topomatic360/configdb:/data/configdb
+      - ./topomatic360/db:/data/db
+
+  cloud:
+    image: topomatic/topomatic360
+    logging:
+      options:
+        max-size: "15m"
+        max-file: "5"
+    restart: always
+    container_name: cloud
+    hostname: cloud
+    depends_on:
+      - mongo
+    environment:
+      - TFS_VERBOSE=2
+      - TFS_MONGO_URL=mongodb://root:example@mongo:27017/
+      - TFS_TID_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxx@id.topomatic.ru
+      - TFS_TID_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx
+      - TFS_MONGO_DBNAME=cloud
+      - TFS_ADMINS=xxxxx@yyyyyy.ru;xxxxx@topomatic.local
+      - TFS_ORIGINS=*
+      - TFS_FQDN=cloud.local
+      - TFS_DEFAULT_USER_CAPACITY=0
+      - TFS_DEFAULT_COMPANY_CAPACITY=0
+      - TFS_LDAP_ADDRESS=ldap
+      - TFS_LDAP_PORT=5000
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    container_name: nginx
+    hostname: nginx
+    logging:
+      options:
+        max-file: "2"
+        max-size: 10m
+    stdin_open: true
+    volumes:
+      - ./topomatic360/nginx/conf.d:/etc/nginx/conf.d
+      - ./topomatic360/nginx/cache:/var/cache/nginx
+      - ./topomatic360/nginx/certs:/etc/nginx/certs
+    ports:
+      - 443:443
+    depends_on:
+      - cloud
+
+  ldap:
+    image: topomatic/ldap
+    logging:
+      options:
+        max-size: "15m"
+        max-file: "5"
+    restart: always
+    container_name: ldap
+    hostname: ldap
+    environment:
+        - LDAP_SERVER=ldaps://ad-pdc.topomatic.local
+        - LDAP_BASE_DN=DC=topomatic,DC=local
+        - LDAP_COMPANY_ID=topomatic.local
+        - LDAP_COMPANY_NAME=ТОПОМАТИК
+# ldap DEFAULT VALUES:  
+#      - LDAP_PORT=636
+#      - LDAP_USE_SSL=1
+#      - LDAP_ADMIN_GROUPS_SEARCH_FILTER=(sAMAccountName=Administrators)
+#      - LDAP_AUTHENTICATION=SIMPLE
+#      - LDAP_LOGIN=%login%
+#      - LDAP_DEBUG_INFO=0
